@@ -1,0 +1,1 @@
+# jooq-code-generation-example
