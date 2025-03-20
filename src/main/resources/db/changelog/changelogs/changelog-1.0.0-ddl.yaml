@@ -1,0 +1,58 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1.0.0-ddl-foo
+      author: melle
+      changes:
+        - createTable:
+            tableName: foo
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(128)
+              - column:
+                  name: foo_test
+                  type: varchar(256)
+
+        - addPrimaryKey:
+            tableName: foo
+            columnNames: id
+            constraintName: pk_foo
+
+  - changeSet:
+      id: 1.0.0-ddl-bar
+      author: melle
+      changes:
+        - createTable:
+            tableName: bar
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bar_name
+                  type: varchar(128)
+              - column:
+                  name: foo_id
+                  type: int
+
+        - addPrimaryKey:
+            tableName: bar
+            columnNames: id
+            constraintName: pk_bar
+
+        - addForeignKeyConstraint:
+            baseColumnNames: foo_id
+            baseTableName: bar
+            constraintName: fk_foo_bar
+            onDelete: CASCADE
+            onUpdate: RESTRICT
+            referencedColumnNames: id
+            referencedTableName: foo
+  

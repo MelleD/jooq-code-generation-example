@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+
+   <parent>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-parent</artifactId>
+      <version>3.3.0</version>
+   </parent>
+
+   <groupId>com.example</groupId>
+   <artifactId>jooq-code-generation-example</artifactId>
+   <version>DEV-SNAPSHOT</version>
+   <packaging>jar</packaging>
+
+   <properties>
+      <jooq-codegen-with-postgres-test-container-for-mysql>true</jooq-codegen-with-postgres-test-container-for-mysql>
+   </properties>
+
+   <dependencies>
+      <dependency>
+         <groupId>org.jooq</groupId>
+         <artifactId>jooq</artifactId>
+      </dependency>
+   </dependencies>
+
+
+   <build>
+      <plugins>
+         <plugin>
+            <!--Testcontainers jooq code-generation workaround, read more here
+             https://blog.jooq.org/using-testcontainers-to-generate-jooq-code/ -->
+            <groupId>org.codehaus.gmavenplus</groupId>
+            <artifactId>gmavenplus-plugin</artifactId>
+            <version>4.1.1</version>
+            <executions>
+               <execution>
+                  <id>postgres-container-start</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>execute</goal>
+                  </goals>
+                  <configuration>
+                     <sourceEncoding>UTF-8</sourceEncoding>
+                     <scripts>src/main/resources/startPostgres.groovy
+                     </scripts>
+                     <properties>
+                        <dockerImage>postgres:14.12</dockerImage>
+                     </properties>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>mysql-container-start</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>execute</goal>
+                  </goals>
+                  <configuration>
+                     <sourceEncoding>UTF-8</sourceEncoding>
+                     <scripts>src/main/resources/startMySql.groovy
+                     </scripts>
+                     <properties>
+                        <dockerImage>mysql:latest</dockerImage>
+                     </properties>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>postgres-container-stop</id>
+                  <!--Mvn phase after generate-sources is process-sources. Stop container here to save resources-->
+                  <phase>process-sources</phase>
+                  <goals>
+                     <goal>execute</goal>
+                  </goals>
+                  <configuration>
+                     <properties>
+                        <containerId>${testcontainer.containerId}</containerId>
+                     </properties>
+                     <sourceEncoding>UTF-8</sourceEncoding>
+                     <scripts>src/main/resources/stopContainer.groovy</scripts>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>mysql-container-stop</id>
+                  <!--Mvn phase after generate-sources is process-sources. Stop container here to save resources-->
+                  <phase>process-sources</phase>
+                  <goals>
+                     <goal>execute</goal>
+                  </goals>
+                  <configuration>
+                     <properties>
+                        <containerId>${mysql.testcontainer.containerId}</containerId>
+                     </properties>
+                     <sourceEncoding>UTF-8</sourceEncoding>
+                     <scripts>src/main/resources/stopContainer.groovy</scripts>
+                  </configuration>
+               </execution>
+            </executions>
+            <dependencies>
+               <dependency>
+                  <groupId>org.testcontainers</groupId>
+                  <artifactId>testcontainers</artifactId>
+                  <version>${testcontainers.version}</version>
+               </dependency>
+               <dependency>
+                  <groupId>org.testcontainers</groupId>
+                  <artifactId>postgresql</artifactId>
+                  <version>${testcontainers.version}</version>
+               </dependency>
+               <dependency>
+                  <groupId>org.testcontainers</groupId>
+                  <artifactId>mysql</artifactId>
+                  <version>${testcontainers.version}</version>
+               </dependency>
+               <dependency>
+                  <groupId>com.mysql</groupId>
+                  <artifactId>mysql-connector-j</artifactId>
+                  <version>${mysql.version}</version>
+               </dependency>
+               <dependency>
+                  <groupId>org.apache.groovy</groupId>
+                  <artifactId>groovy</artifactId>
+                  <version>${groovy.version}</version>
+                  <scope>runtime</scope>
+               </dependency>
+            </dependencies>
+         </plugin>
+
+
+         <plugin>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-maven-plugin</artifactId>
+            <executions>
+               <execution>
+                  <id>liquibase-update-postgres</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>update</goal>
+                  </goals>
+                  <configuration>
+                     <logLevel>WARNING</logLevel> <!-- Avoid too much output from code generation -->
+                     <driver>org.postgresql.Driver</driver>
+                     <url>${db.url}</url>
+                     <username>${db.username}</username>
+                     <password>${db.password}</password>
+                     <changeLogDirectory>${project.basedir}/src/main/resources/db/changelog</changeLogDirectory>
+                     <changeLogFile>db.changelog-master.yaml</changeLogFile>
+                  </configuration>
+               </execution>
+               <execution>
+                  <id>liquibase-update-mysql</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>update</goal>
+                  </goals>
+                  <configuration>
+                     <logLevel>WARNING</logLevel> <!-- Avoid too much output from code generation -->
+                     <driver>com.mysql.cj.jdbc.Driver</driver>
+                     <url>${mysql.db.url}</url>
+                     <username>${mysql.db.username}</username>
+                     <password>${mysql.db.password}</password>
+                     <changeLogDirectory>${project.basedir}/src/main/resources/db/changelog</changeLogDirectory>
+                     <changeLogFile>db.changelog-master.yaml</changeLogFile>
+                  </configuration>
+               </execution>
+            </executions>
+
+            <dependencies>
+               <dependency>
+                  <groupId>org.postgresql</groupId>
+                  <artifactId>postgresql</artifactId>
+                  <version>${postgresql.version}</version>
+               </dependency>
+
+               <dependency>
+                  <groupId>com.mysql</groupId>
+                  <artifactId>mysql-connector-j</artifactId>
+                  <version>${mysql.version}</version>
+               </dependency>
+            </dependencies>
+         </plugin>
+
+
+         <plugin>
+            <groupId>org.jooq</groupId>
+            <artifactId>jooq-codegen-maven</artifactId>
+            <executions>
+               <execution>
+                  <id>jooq-codegen-with-postgres-test-container</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>generate</goal>
+                  </goals>
+                  <configuration>
+                     <logging>WARN</logging> <!-- Avoid too much output from code generation -->
+                     <jdbc>
+                        <url>${db.url}</url>
+                        <user>${db.username}</user>
+                        <password>${db.password}</password>
+                     </jdbc>
+                     <generator>
+                        <name>org.jooq.codegen.JavaGenerator</name>
+                        <database>
+                           <inputSchema>public</inputSchema>
+                           <outputCatalogToDefault>true</outputCatalogToDefault>
+                           <outputSchemaToDefault>true</outputSchemaToDefault>
+                           <name>org.jooq.meta.postgres.PostgresDatabase</name>
+                        </database>
+                        <target>
+                           <packageName>com.codegen.testcontainer.postgres</packageName>
+                           <directory>src/main/java</directory>
+                        </target>
+                     </generator>
+                  </configuration>
+               </execution>
+
+               <execution>
+                  <id>jooq-codegen-with-mysql-test-container</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>generate</goal>
+                  </goals>
+                  <configuration>
+                     <logging>WARN</logging> <!-- Avoid too much output from code generation -->
+                     <jdbc>
+                        <url>${mysql.db.url}</url>
+                        <user>${mysql.db.username}</user>
+                        <password>${mysql.db.password}</password>
+                     </jdbc>
+                     <generator>
+                        <name>org.jooq.codegen.JavaGenerator</name>
+                        <database>
+                           <inputSchema>test</inputSchema>
+                           <outputCatalogToDefault>true</outputCatalogToDefault>
+                           <outputSchemaToDefault>true</outputSchemaToDefault>
+                           <name>org.jooq.meta.mysql.MySQLDatabase</name>
+                        </database>
+                        <target>
+                           <packageName>com.codegen.testcontainer.mysql</packageName>
+                           <directory>src/main/java</directory>
+                        </target>
+                     </generator>
+                  </configuration>
+               </execution>
+
+
+               <execution>
+                  <id>jooq-codegen-with-postgres-test-container-for-mysql</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>generate</goal>
+                  </goals>
+                  <configuration>
+                     <skip>${jooq-codegen-with-postgres-test-container-for-mysql}</skip>
+                     <logging>WARN</logging> <!-- Avoid too much output from code generation -->
+                     <jdbc>
+                        <url>${db.url}</url>
+                        <user>${db.username}</user>
+                        <password>${db.password}</password>
+                     </jdbc>
+                     <generator>
+                        <name>org.jooq.codegen.JavaGenerator</name>
+                        <database>
+                           <inputSchema>public</inputSchema>
+                           <outputCatalogToDefault>true</outputCatalogToDefault>
+                           <outputSchemaToDefault>true</outputSchemaToDefault>
+                           <name>org.jooq.meta.mysql.MySQLDatabase</name>
+                        </database>
+                        <target>
+                           <packageName>com.codegen.testcontainer.mysql2</packageName>
+                           <directory>src/main/java</directory>
+                        </target>
+                     </generator>
+                  </configuration>
+               </execution>
+
+               <execution>
+                  <id>jooq-codegen-with-liquibase</id>
+                  <phase>generate-sources</phase>
+                  <goals>
+                     <goal>generate</goal>
+                  </goals>
+                  <configuration>
+                     <generator>
+                        <database>
+                           <name>org.jooq.meta.extensions.liquibase.LiquibaseDatabase</name>
+                           <properties>
+
+                              <!-- Specify the root path, e.g. a path in your Maven directory layout -->
+                              <property>
+                                 <key>rootPath</key>
+                                 <value>${basedir}/src/main/resources</value>
+                              </property>
+
+                              <!-- Specify the relative path location of your XML, YAML, or JSON script. -->
+                              <property>
+                                 <key>scripts</key>
+                                 <value>db/changelog/db.changelog-master.yaml</value>
+                              </property>
+                           </properties>
+                        </database>
+                        <target>
+                           <packageName>com.codegen.liquibase</packageName>
+                           <directory>src/main/java</directory>
+                        </target>
+                     </generator>
+                  </configuration>
+               </execution>
+
+            </executions>
+            <dependencies>
+               <dependency>
+                  <groupId>org.postgresql</groupId>
+                  <artifactId>postgresql</artifactId>
+                  <version>${postgresql.version}</version>
+               </dependency>
+
+               <dependency>
+                  <groupId>com.mysql</groupId>
+                  <artifactId>mysql-connector-j</artifactId>
+                  <version>${mysql.version}</version>
+               </dependency>
+
+               <dependency>
+                  <groupId>org.jooq</groupId>
+                  <artifactId>jooq-meta-extensions-liquibase</artifactId>
+                  <version>${jooq.version}</version>
+               </dependency>
+            </dependencies>
+         </plugin>
+      </plugins>
+   </build>
+</project>
